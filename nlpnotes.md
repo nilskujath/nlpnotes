@@ -3,7 +3,6 @@ marp: true
 theme: default
 # class: invert
 paginate: true
-# header: Kujath, Nils. 2025. *Topics in Machine Learning for Natural Language Processing*.
 style: |-
   :root {
     font-size: 22px;
@@ -42,7 +41,7 @@ style: |-
 
 Nils Kujath
 
-v2026.03
+v2026.04
 
 ---
 ## Degenerate Geometry of One-Hot Word Representations
@@ -63,9 +62,18 @@ v2026.03
   Note that positions $n \leq k$ and $n > N - k$ are excluded since $k$ tokens of context are required on each side.
 * For each $w_i \in V$, define the distributional profile of $w_i$ in $\mathcal{D}$ as the multiset:
   $$\boxed{\Delta_k(w_i) = \{\!\!\{ \mathcal{C}_k(n) : n \in \{k{+}1, \ldots, N{-}k\},\; t_n = w_i \}\!\!\}}.$$
-* The Distributional Hypothesis (see esp. Harris 1954 and Firth 1957) asserts that $w_i$ and $w_j$ are semantically similar iff they appear in a similar contexts, that is, iff $\Delta_k(w_i) \approx \Delta_k(w_j)$. The previous slide has shown that the degenerate geometry of BoW representations precludes any graded notion of similarity. However, comparing multisets over $V^{2k}$ directly also seems intractable. The goal is therefore to find a map:
+* The Distributional Hypothesis (see esp. Harris 1954 and Firth 1957) asserts that $w_i$ and $w_j$ are semantically similar if they appear in a similar contexts, that is, if $\Delta_k(w_i) \approx \Delta_k(w_j)$. The previous slide has shown that the degenerate geometry of BoW representations precludes any graded notion of similarity. However, comparing multisets over $V^{2k}$ directly also seems intractable. The goal is therefore to find a map:
   $$\boxed{\phi : V \to \mathbb{R}^m \, (m \ll |V|) \quad \text{s.t.} \quad \Delta_k(w_i) \approx \Delta_k(w_j) \quad \text{is operationalised as} \quad \phi(w_i) \approx \phi(w_j) \text{ in } \mathbb{R}^m}.$$
-  That is, $\phi$ embeds the discrete set $V$ into (the so-called embedding space) $\mathbb{R}^m$ such that distributional similarity in $\mathcal{D}$ is faithfully compressed into geometric proximity.
+  That is, $\phi$ embeds the discrete set $V$ into (the so-called embedding space) $\mathbb{R}^m$ such that distributional similarity in $\mathcal{D}$ is faithfully compressed into geometric proximity. (Note: We will discuss later why we desire $m \ll |V|$.)
+
+---
+## Count-Based Word Embeddings
+
+* Let $V = \{w_1, \ldots, w_{|V|}\}$ be a finite vocabulary and $k \in \mathbb{N}^+$ the selected size of the context window. We could define a co-occurrence matrix $M \in \mathbb{N}^{|V| \times |V|}$ where $M_{ij}$ is the number of times $w_j$ appears in a context window of size $k$ around $w_i$ in the corpus $\mathcal{D} = (t_1, \ldots, t_N)$:
+  $$\boxed{M_{ij} = \sum_{n=k+1}^{N-k} \,\,\, \underbrace{\mathbf{1}[t_n = w_i]}_{1 \text{ if center is } w_i} \,\,\, \cdot \,\,\, \sum_{\substack{l=n-k \\ l \neq n}}^{n+k} \quad \underbrace{\mathbf{1}[t_l = w_j]}_{1 \text{ if context slot is } w_j}}.$$
+  The outer sum ranges over all valid center positions $n \in \{k{+}1, \ldots, N{-}k\}$; the inner sum scans the $2k$ surrounding context slots.
+* Recall the context map $\mathcal{C}_k(n) = (t_{n-k}, \ldots, t_{n-1}, t_{n+1}, \ldots, t_{n+k})$ for $n \in \{k{+}1, \ldots, N{-}k\}$, and the distributional profile $\Delta_k(w_i) = \{\!\!\{ \mathcal{C}_k(n) : n \in \{k{+}1, \ldots, N{-}k\},\; t_n = w_i \}\!\!\}$ from the previous slide. The co-occurrence matrix $M$ is a lossy compression of the distributional profiles $\Delta_k$ over $D$: ordering within each context tuple is discarded, and only co-occurrence frequencies are retained.
+* In $M$, each row $\mathbf{m}_i = (M_{i1}, \ldots, M_{i,|V|}) \in \mathbb{R}^{|V|}$ is already a representation of $w_i$ that reflects distributional similarity: words with similar co-occurrence patterns have similar row vectors. However, these rows live in $\mathbb{R}^{|V|}$, not the $\mathbb{R}^m$ with $m \ll |V|$ sought on the previous slide.
 
 ---
 ## References
