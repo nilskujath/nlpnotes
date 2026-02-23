@@ -41,7 +41,7 @@ style: |-
 
 Nils Kujath
 
-v2026.04
+v2026.05
 
 ---
 
@@ -73,45 +73,45 @@ v2026.04
   That is, $\phi$ embeds the discrete set $V$ into (the so-called embedding space) $\mathbb{R}^m$ such that distributional similarity in $\mathcal{D}$ is faithfully compressed into geometric proximity. (Note: We will discuss later why we desire $m \ll |V|$.)
 
 ---
-## Count-Based Word Embeddings
+## Count-Based Word Embeddings (Schütze 1992)
 
 * Let $V = \{w_1, \ldots, w_{|V|}\}$ be a finite vocabulary and $k \in \mathbb{N}^+$ the selected size of the context window. We could define a co-occurrence matrix $M \in \mathbb{N}^{|V| \times |V|}$ (see Schütze 1992 for this idea) where $M_{[i,j]}$ is the number of times $w_j$ appears in a context window of size $k$ around $w_i$ in the corpus $\mathcal{D} = (t_1, \ldots, t_N)$:
   $$\boxed{M_{[i,j]} = \sum_{n=k+1}^{N-k} \,\,\, \underbrace{\mathbf{1}[t_n = w_i]}_{1 \text{ if center is } w_i} \,\,\, \cdot \,\,\, \sum_{\substack{l=n-k \\ l \neq n}}^{n+k} \quad \underbrace{\mathbf{1}[t_l = w_j]}_{1 \text{ if context slot is } w_j}}.$$
   The outer sum ranges over all valid center positions $n \in \{k{+}1, \ldots, N{-}k\}$; the inner sum scans the $2k$ surrounding context slots.
-* Recall the context map $\mathcal{C}_k(n) = (t_{n-k}, \ldots, t_{n-1}, t_{n+1}, \ldots, t_{n+k})$ for $n \in \{k{+}1, \ldots, N{-}k\}$, and the distributional profile $\Delta_k(w_i) = \{\!\!\{ \mathcal{C}_k(n) : n \in \{k{+}1, \ldots, N{-}k\},\; t_n = w_i \}\!\!\}$ from the previous slide. The co-occurrence matrix $M$ is a lossy compression of the distributional profiles $\Delta_k$ over $D$: ordering within each context tuple is discarded, and only co-occurrence frequencies are retained.
+* Recall the context map $\mathcal{C}_k(n) = (t_{n-k}, \ldots, t_{n-1}, t_{n+1}, \ldots, t_{n+k})$ for $n \in \{k{+}1, \ldots, N{-}k\}$, and the distributional profile $\Delta_k(w_i) = \{\!\!\{ \mathcal{C}_k(n) : n \in \{k{+}1, \ldots, N{-}k\},\; t_n = w_i \}\!\!\}$ from the previous slide. The co-occurrence matrix $M$ is a lossy compression of the distributional profiles $\Delta_k$ over $\mathcal{D}$: ordering within each context tuple is discarded, and only co-occurrence frequencies are retained.
 * In $M$, each row $\mathbf{m}_i = (M_{[i,1]}, \ldots, M_{[i,|V|]}) \in \mathbb{R}^{|V|}$ is already a representation of $w_i$ that reflects distributional similarity: words with similar co-occurrence patterns have similar row vectors. However, these rows live in $\mathbb{R}^{|V|}$, not the $\mathbb{R}^m$ with $m \ll |V|$ sought on the previous slide.
 
 ---
-## The Frequency Problem in Count-based Word Embeddings
+## PPMI Reweighting of Count-based Co-Occurrence Matrices (Bullinaria & Levy 2007)
 
-* From the previous slide, recall the co-occurrence matrix $M$, where $M_{[i,j]}$ is the number of times $w_j$ appears in a context window of size $k$ around $w_i$. Since the distribution of words in a (natural language) corpus follows a power law s.t. a small number of types accounts for a large number of tokens (see Zipf 1935), raw co-occurrence counts are necessarily dominated by these high-frequency words (e.g.: *the*) simply because they are frequent enough to appear in the vicinity of nearly every word (see Luhn 1958; Spärck Jones 1972).
-* Church & Hanks (1990) proposed to factor out this frequency effect by comparing for each pair $(w_i, w_j)$, their observed co-occurrence to the co-occurrence expected in the same corpus if it were randomly shuffled but retained each word's individual frequencies. To formalise this comparison, we need two quantities: the observed probability that, when a co-occurrence pair in $M$ is randomly selected, it turns out to be the pair $(w_i,w_j)$, written $P_{\mathcal{D}}(w_i, w_j)$; and the expected probability of selecting this same pair from a randomly shuffled version of $\mathcal{D}$ that retains each word's individual frequency, given by $P_{\mathcal{D}}(w_i) \cdot P_{\mathcal{D}}(w_j)$. These can be estimated as follows:
-  $$\boxed{P_{\mathcal{D}}(w_i, w_j) = \frac{
-  \underbrace{M_{[i,j]}}_{\substack{\text{observed count of } w_j \text{ appearing} \\ \text{in context windows around } w_i}}}{
-  \underbrace{\sum_{a=1}^{|V|} \sum_{b=1}^{|V|} M_{[a,b]}}_{\substack{\text{total co-occurrence events of} \\ \text{any } w_a \text{ and any } w_b \text{ recorded in } M}}} \qquad
-  P_{\mathcal{D}}(w_i) = \frac{
-  \underbrace{\operatorname{count}(w_i, \mathcal{D})}_{\substack{\text{token count of } w_i \text{ in } \mathcal{D}}}}{
-  \underbrace{|\mathcal{D}|}_{\substack{\text{total tokens } \text{in corpus}}}} \qquad
-  P_{\mathcal{D}}(w_j) = \frac{
-  \underbrace{\operatorname{count}(w_j, \mathcal{D})}_{\substack{\text{token count of } w_j \text{ in } \mathcal{D}}}}{
-  \underbrace{|\mathcal{D}|}_{\substack{\text{total tokens } \text{in corpus}}}}}.$$
-
----
-## PMI and PPMI Reweighting of Count-Based Co-Occurrence Matrices
-
-* Church & Hanks (1990) combined the observed co-occurrence probability $P_{\mathcal{D}}(w_i, w_j)$ and the chance-level prediction $P_{\mathcal{D}}(w_i) \cdot P_{\mathcal{D}}(w_j)$ into a single score called Pointwise Mutual Information (PMI; see also Fano 1961). Computing $\operatorname{PMI}(w_i, w_j)$ for every pair and replacing each raw count $M_{[i,j]}$ with this value produces a reweighted matrix $M^{\operatorname{PMI}} \in \mathbb{R}^{|V| \times |V|}$ in which the frequency effect has been factored out:
-  $$\boxed{M^{\operatorname{PMI}}_{[i,j]} = \operatorname{PMI}(w_i, w_j) = \underbrace{\log_2}_{\substack{\text{maps to symmetric} \\ \text{scale centred at 0}}} \frac{\underbrace{P_{\mathcal{D}}(w_i, w_j)}_{\substack{\text{observed co-occurrence}}}}{\underbrace{P_{\mathcal{D}}(w_i) \cdot P_{\mathcal{D}}(w_j)}_{\substack{\text{chance-level co-occurrence}}}}}$$
+* The entries of $M$ suffer from frequency dominance (Zipf 1935; Luhn 1958; Spärck Jones 1972). A remedy is Pointwise Mutual Information (PMI; Fano 1961), originally applied to lexical co-occurrence data by Church & Hanks (1990) and later used to reweight co-occurrence matrices by Bullinaria & Levy (2007). PMI replaces each raw count $M_{[i,j]}$ with a score that factors out the frequency effect, yielding $M^{\operatorname{PMI}} \in \mathbb{R}^{|V| \times |V|}$:
+  $$\boxed{M^{\operatorname{PMI}}_{[i,j]} \; = \; \operatorname{PMI}(w_i, w_j) \; = \underbrace{\log_2}_{\substack{\text{maps to symmetric} \\ \text{scale centred at 0}}} \frac{\underbrace{P_{\mathcal{D}}(w_i, w_j)}_{\substack{\text{observed co-occurrence}}}}{\underbrace{P_{\mathcal{D}}(w_i) \cdot P_{\mathcal{D}}(w_j)}_{\substack{\text{chance-level co-occurrence}}}} \; = \; \log_2 \frac{\dfrac{M_{[i,j]}}{\sum_{a=1}^{|V|} \sum_{b=1}^{|V|} M_{[a,b]}}}{\dfrac{\operatorname{count}(w_i, \mathcal{D})}{|\mathcal{D}|} \;\cdot\; \dfrac{\operatorname{count}(w_j, \mathcal{D})}{|\mathcal{D}|}}}$$
 * In practice, most word pairs never co-occur at all ($M_{[i,j]} = 0$, sending $\operatorname{PMI} \to -\infty$), and pairs with very low counts produce large negative values that reflect data sparsity rather than genuine anti-association. The standard solution is to clamp all negative values to zero, yielding Positive PMI (PPMI; see Bullinaria & Levy 2007):
-  $$\boxed{M^{\operatorname{PPMI}}_{[i,j]} = \operatorname{PPMI}(w_i, w_j) = \max\!\big(0,\; \operatorname{PMI}(w_i, w_j)\big)}$$
+  $$\boxed{M^{\operatorname{PPMI}}_{[i,j]} = \operatorname{PPMI}(w_i, w_j) = \max\!\big(0,\; \operatorname{PMI}(w_i, w_j)\big)}.$$
   A row $M^{\operatorname{PPMI}}_{[i,*]} \in \mathbb{R}^{1 \times |V|}$ cast as a vector in $\mathbb{R}^{|V|}$ could now serve as a word vector for $w_i \in V$. Though this solves the frequency problem, the resulting embeddings still do not live in the desired space $\mathbb{R}^{m}$ where $m \ll |V|$.
 
 ---
-## References
+## Dimensionality Reduction via Truncated Singular Value Decomposition
+
+* The matrix $M^{\operatorname{PPMI}} \in \mathbb{R}^{|V| \times |V|}$ from the previous slide yields word vectors in $\mathbb{R}^{|V|}$. To obtain vectors in the desired $\mathbb{R}^m$ where $m \ll |V|$, we apply the Singular Value Decomposition (SVD), following a line of work that applied SVD to term-document matrices (Deerwester et al. 1990), then to count-based co-occurrence matrices (Schütze 1992), and finally to PPMI-reweighted co-occurrence matrices (Bullinaria & Levy 2012).
+* SVD decomposes $M^{\operatorname{PPMI}}$ into a set of orthogonal axes, each associated with a singular value $\sigma_i$ that measures how much of the matrix's structure that axis captures. These axes are sorted by importance: $\sigma_1 \geq \sigma_2 \geq \cdots \geq \sigma_{|V|} \geq 0$. The truncated SVD of rank $m$ retains only the $m$ axes with the largest singular values and discards the rest (Eckart & Young 1936):
+  $$\boxed{M^{\operatorname{PPMI}} \approx \underbrace{U_m}_{\in \, \mathbb{R}^{|V| \times m}} \quad \underbrace{\Sigma_m}_{\in \, \mathbb{R}^{m \times m}} \quad \underbrace{V_m^\top}_{\in \, \mathbb{R}^{m \times |V|}}}$$
+ * The full product $U_m \Sigma_m V_m^\top$ would reconstruct a $|V| \times |V|$ matrix. The compression comes from stopping before the last multiplication: row $i$ of $U_m \Sigma_m \in \mathbb{R}^{|V| \times m}$ is a word vector for $w_i$ in $\mathbb{R}^m$. The $m$ dimensions no longer correspond to individual context words as in $M^{\operatorname{PPMI}}$; they are abstract axes that capture the most important co-occurrence patterns across the entire vocabulary. This finally delivers the embedding $\phi : V \to \mathbb{R}^m$ with $m \ll |V|$. An alternative approach is to learn word vectors in $\mathbb{R}^{m}$ directly from $\mathcal{D}$ (see the following slides).
+
+---
+## References 1/2
 
 * Bullinaria, John A. & Joseph P. Levy. 2007. Extracting semantic representations from word co-occurrence statistics: A computational study. Behavior Research Methods 39(3). 510–526.
+* Bullinaria, John A. & Joseph P. Levy. 2012. Extracting semantic representations from word co-occurrence statistics: Stop-lists, stemming, and SVD. Behavior Research Methods 44(3). 890–907.
 * Church, Kenneth W. & Patrick Hanks. 1990. Word association norms, mutual information and lexicography. Computational Linguistics 16(1). 22–29.
+* Deerwester, Scott C., Susan T. Dumais, Thomas K. Landauer, George W. Furnas & Richard A. Harshman. 1990. Indexing by latent semantic analysis. Journal of the American Society for Information Science 41(6). 391–407.
+* Eckart, Carl & Gale Young. 1936. The approximation of one matrix by another of lower rank. Psychometrika 1(3). 211–218.
 * Fano, Robert M. 1961. Transmission of information: A statistical theory of communications. Cambridge, MA: MIT Press.
 * Firth, John R. 1957. A synopsis of linguistic theory, 1930–1955. In *Studies in Linguistic Analysis*, 1–32. Oxford: Basil Blackwell.
+
+---
+## References 2/2
+
 * Harris, Zellig S. 1954. Distributional structure. *Word* 10(2–3). 146–162.
 * Luhn, Hans Peter. 1958. The automatic creation of literature abstracts. IBM Journal of Research and Development 2(2). 159–165.
 * Schütze, Hinrich. 1992. Dimensions of meaning. In _Proceedings of Supercomputing '92_.
