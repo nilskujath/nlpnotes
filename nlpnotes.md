@@ -99,11 +99,82 @@ v2026.05
  * The full product $U_m \Sigma_m V_m^\top$ would reconstruct a $|V| \times |V|$ matrix. The compression comes from stopping before the last multiplication: row $i$ of $U_m \Sigma_m \in \mathbb{R}^{|V| \times m}$ is a word vector for $w_i$ in $\mathbb{R}^m$. The $m$ dimensions no longer correspond to individual context words as in $M^{\operatorname{PPMI}}$; they are abstract axes that capture the most important co-occurrence patterns across the entire vocabulary. This finally delivers the embedding $\phi : V \to \mathbb{R}^m$ with $m \ll |V|$. An alternative approach is to learn word vectors in $\mathbb{R}^{m}$ directly from $\mathcal{D}$ (see the following slides).
 
 ---
+<style scoped>
+section {
+  background-color: #e0e0e0;
+}
+</style>
+
+
+**Excursus 1**
+# Fully-Connected Feed-Forward Neural Networks (FFNNs)
+
+---
+<style scoped>
+section {
+  background-color: #e0e0e0;
+}
+</style>
+## Architecture of Fully-Connected Feed-Forward Neural Networks (1)
+
+
+* The following architectural choices must be made before training the FFNN (this is usually referred to as the setting of the network's hyperparameters):
+	* The number of layers $L \in \mathbb{N}_{\geq 1}$, corresponding to the number of hidden layers plus the output layer;
+	* The width of each layer, written as $(d_0, d_1, \ldots, d_L)$, where $d_0$ is the dimension of the input vector, $d_\ell$ for $1 \le \ell \le L-1$ the number of neurons in hidden layer $\ell$, and $d_L$ the dimension of the output layer; and
+	* The activation functions $g^{(\ell)} : \mathbb{R}^{d_\ell} \to \mathbb{R}^{d_\ell}$ for each layer $1 \le \ell \le L$, written as $(g^{(1)}, \ldots, g^{(L)})$.
+* The (trainable) parameters of the network are collected in a set $\theta = \{(\mathbf{W}^{(\ell)}, \mathbf{b}^{(\ell)})\}_{\ell=1}^{L}$, where for each layer $\ell = 1,\ldots,L$, $\; \mathbf{W}^{(\ell)} \in \mathbb{R}^{d_{\ell-1} \times d_\ell}$ is the weight matrix and $\mathbf{b}^{(\ell)} \in \mathbb{R}^{1 \times d_\ell}$ is the bias row vector.
+* The neural network itself can be seen as the composition of layer functions: $F_\theta = f^{(L)} \circ f^{(L-1)} \circ \cdots \circ f^{(1)}$, with $F_\theta : \mathbb{R}^{1 \times d_0} \to \mathbb{R}^{1 \times d_L}$, where each layer function is defined as:
+  $$\boxed{f^{(\ell)} : \mathbb{R}^{1 \times d_{\ell-1}} \to \mathbb{R}^{1 \times d_\ell}, \qquad \mathbf{u} \mapsto g^{(\ell)}\!\left(A(\mathbf{u})\,\tilde{\mathbf{W}}^{(\ell)}\right)}$$
+  Here $\mathbf{u} \in \mathbb{R}^{1 \times d_{\ell-1}}$ is the input to layer $\ell$, $A(\mathbf{u}) = (1, \mathbf{u}) \in \mathbb{R}^{1 \times (d_{\ell-1}+1)}$ is the augmentation operator, and $\tilde{\mathbf{W}}^{(\ell)}$ is the augmented weight matrix that integrates the bias into the weight matrix, so that the affine map $\mathbf{u}\mathbf{W}^{(\ell)} + \mathbf{b}^{(\ell)}$ can be written as the linear map $A(\mathbf{u})\,\tilde{\mathbf{W}}^{(\ell)}$: $\tilde{\mathbf{W}}^{(\ell)\top} = \begin{bmatrix} \mathbf{b}^{(\ell)\top} & \mathbf{W}^{(\ell)\top} \end{bmatrix} \in \mathbb{R}^{d_\ell \times (d_{\ell-1}+1)}$.
+
+---
+<style scoped>
+section {
+  background-color: #e0e0e0;
+}
+</style>
+## Architecture of Fully-Connected Feed-Forward Neural Networks (2)
+
+* Given $\mathbf{x} \in \mathbb{R}^{1 \times d_0}$, forward propagation evaluates $F_\theta$ by computing activations $\mathbf{a}^{(0)} := \mathbf{x}$ and, for $\ell = 1,\ldots,L$: 
+  $$\boxed{\tilde{\mathbf{a}}^{(\ell-1)} := A(\mathbf{a}^{(\ell-1)}) \in \mathbb{R}^{1 \times (d_{\ell-1}+1)}, \quad \mathbf{z}^{(\ell)} := \tilde{\mathbf{a}}^{(\ell-1)} \tilde{\mathbf{W}}^{(\ell)} \in \mathbb{R}^{1 \times d_\ell}, \quad \mathbf{a}^{(\ell)} := g^{(\ell)}(\mathbf{z}^{(\ell)}) \in \mathbb{R}^{1 \times d_\ell}}.$$
+  The output is the final activation: $F_\theta(\mathbf{x}) := \mathbf{a}^{(L)}$. In classification with $\mathcal{Y} = \{1,\ldots,C\}$ and $d_L = C$, a prediction is obtained via $\hat{y}(\mathbf{x}) := \arg\max_{c \in \mathcal{Y}} a^{(L)}_c$, or as a distribution: $P(y = c \mid \mathbf{x}) := \operatorname{softmax}(\mathbf{a}^{(L)})_c$. In regression, typically $d_L = 1$ with identity activation, so $F_\theta(\mathbf{x}) = a_1^{(L)} \in \mathbb{R}$.
+* If all activations are linear (or affine), the composition of layers reduces to a single affine map; adding depth does not increase expressive power. Such a network can only represent linear decision boundaries (hyperplanes) and fails on datasets that are not linearly separable (see Minsky & Papert 1969).
+  A dataset $X = \{(\mathbf{x}^{(i)}, y^{(i)})\}_{i=1}^{T} \subset \mathbb{R}^d \times \{1,\ldots,C\}$ is linearly separable if $\exists\,(\mathbf{W}, \mathbf{b}) \in \mathbb{R}^{d \times C} \times \mathbb{R}^C$ s.t.:
+  $$\boxed{\forall i \in \{1,\ldots,T\},\, (\forall c \in \{1,\ldots,C\} \setminus \{y^{(i)}\}) : (\mathbf{x}^{(i)} \mathbf{W}_{[*,\, y^{(i)}]} + b_{y^{(i)}}) > (\mathbf{x}^{(i)} \mathbf{W}_{[*,\, c]} + b_c)}.$$
+* Universal Approximation Theorem: FFNNs with at least one hidden layer and a non-constant, non-linear activation (e.g. ReLU, sigmoid) are universal approximators of continuous functions on compact subsets of $\mathbb{R}^D$ (see Cybenko 1989 and Hornik et al. 1989; see also Leshno et al. 1993), that are expressive enough to perfectly separate any finite dataset, though this does not imply such solutions can be efficiently learned or will generalise.
+
+---
+<style scoped>
+section {
+  background-color: #e0e0e0;
+}
+</style>
+## Learning as Minimizing the Loss Function
+
+* Given a training set $X = \{(\mathbf{x}^{(i)}, y^{(i)})\}_{i=1}^T$ and a scoring function $F_\theta$, a loss function $L(X,\theta)$ measures how poorly the system performs on $X$, typically by aggregating a per-example loss $l(\mathbf{x},y,\theta)$. Learning means finding the parameters that minimize this loss: $\boxed{\theta^{*} = \arg\min_{\theta} L(X,\theta) = \arg\min_{\theta} \textstyle\frac{1}{T}\sum_{i=1}^T l(\mathbf{x}^{(i)}, y^{(i)}, \theta)}$.
+* Multi-class classification: Let $\mathcal{Y} = \{1,\ldots,C\}$ be the set of class labels and  $F_\theta(\mathbf{x}) \in \mathbb{R}^{1 \times C}$ be the output of the scoring function. The per-example margin $\operatorname{margin}(\mathbf{x},y,F_\theta) = F_\theta(\mathbf{x})_y - \max_{c \neq y} F_\theta(\mathbf{x})_c$ quantifies how confidently an example is classified. The hinge loss penalizes training examples whose margin is smaller than a fixed threshold (usually $1$). For an ex. $(\mathbf{x},y)$, it is def. as $\boxed{l_{\text{hinge}}(\mathbf{x},y,\theta)=\max\, \!\bigl(0,\; 1 - \operatorname{margin}(\mathbf{x},y,F_\theta)\bigr)}$ and is equal to zero when the margin is sufficiently large, while increasing linearly for examples that are misclassified or classified with insufficient confidence. (The log loss can be seen as a smooth approx. of the hinge loss: it penalizes small margins continuously, equals 1 if the margin is 0, and smoothly decreases towards 0 as the margin grows.)
+* Probabilistic classification: the standard loss is the cross-entropy loss. Given a model defining conditional class probabilities $P(y \mid \mathbf{x},\theta)$, learning consists in maximizing the conditional likelihood of the observed labels, which is equivalent to minimizing the negative log likelihood of the observed labels: $\boxed{l_{\text{CE}}(\mathbf{x},y,\theta)=-\log P(y \mid \mathbf{x},\theta)}.$
+* Regression: Let $F_\theta(\mathbf{x}) \in \mathbb{R}$ be the output of the scoring function. The standard loss is the mean squared error (MSE), minimized ($=0$) when predicted values exactly match target values: $\boxed{l_{\text{MSE}}(\mathbf{x},y,\theta) = \big(F_\theta(\mathbf{x}) - y\big)^2}$.
+---
+<style scoped>
+section {
+  background-color: #e0e0e0;
+}
+</style>
+
+## Learning the Parameters: Full-Batch, Stochastic, and Mini-Batch Gradient Descent
+
+* Learning means minimizing $J(X,\theta)$ (typically a loss function + a regularization term), i.e., we need to find how to update $\theta$ such that $J$ decreases: $\boxed{\textstyle\theta^\star = \arg\min_\theta J(X,\theta)}$. Gradient descent is an iterative optimization algo. that updates the parameters in the direction of steepest decrease of $J$: $\boxed{\theta^{(t+1)} = \theta^{(t)} - \eta \,\nabla_\theta J(X,\theta^{(t)})}$ where $\nabla_\theta J$ is the gradient of $J$ with respect to the parameters, and $\eta > 0$ is the learning rate (step size).
+* For Full-Batch Gradient Descent, at each iteration, we perform a forward pass, compute the loss $J(X,\theta)$ on the full dataset, compute its gradient via backpropagation, and update all parameters $\theta$. If $J$ is convex and $\eta$ is sufficiently small, gradient descent converges to the global minimum.
+* $J$ usually decomposes as a sum over training examples: $\boxed{\textstyle J(X,\theta) = R(\theta) + \frac{1}{T}\sum_{i=1}^T l(\mathbf{x}^{(i)},y^{(i)},\theta)}$, where $R$ is an optional regularization term. Stochastic Gradient Descent (SGD) approximates the gradient using a *single* randomly sampled example: $\boxed{\theta \leftarrow \theta - \eta \,\nabla_\theta \big(R(\theta) + l(\mathbf{x},y,\theta)\big)}$ while Mini-batch Gradient Descent uses a small batch $B$ of $k$ examples: $\boxed{\textstyle\theta \leftarrow \theta - \eta \,\nabla_\theta\Big(R(\theta) + \frac{1}{k}\sum_{(\mathbf{x},y)\in B} l(\mathbf{x},y,\theta)\Big)}$. In both cases, training proceeds over epochs (full passes over $X$): shuffle the dataset, iterate over single training examples or mini-batches, and update the parameters after each step. Mini-batches offer a trade-off between accurate gradients (full batch) and fast, noisy updates (SGD), and allow efficient parallel computation.
+
+---
 ## References 1/2
 
 * Bullinaria, John A. & Joseph P. Levy. 2007. Extracting semantic representations from word co-occurrence statistics: A computational study. Behavior Research Methods 39(3). 510–526.
 * Bullinaria, John A. & Joseph P. Levy. 2012. Extracting semantic representations from word co-occurrence statistics: Stop-lists, stemming, and SVD. Behavior Research Methods 44(3). 890–907.
 * Church, Kenneth W. & Patrick Hanks. 1990. Word association norms, mutual information and lexicography. Computational Linguistics 16(1). 22–29.
+* Cybenko, George. 1989. Approximation by superpositions of a sigmoidal function. Mathematics of Control, Signals and Systems 2(4). 303–314.
 * Deerwester, Scott C., Susan T. Dumais, Thomas K. Landauer, George W. Furnas & Richard A. Harshman. 1990. Indexing by latent semantic analysis. Journal of the American Society for Information Science 41(6). 391–407.
 * Eckart, Carl & Gale Young. 1936. The approximation of one matrix by another of lower rank. Psychometrika 1(3). 211–218.
 * Fano, Robert M. 1961. Transmission of information: A statistical theory of communications. Cambridge, MA: MIT Press.
@@ -113,7 +184,10 @@ v2026.05
 ## References 2/2
 
 * Harris, Zellig S. 1954. Distributional structure. *Word* 10(2–3). 146–162.
+* Hornik, Kurt, Maxwell Stinchcombe & Halbert White. 1989. Multilayer feedforward networks are universal approximators. Neural Networks 2(5). 359–366.
+* Leshno, Moshe, Vladimir Ya. Lin, Allan Pinkus & Shimon Schocken. 1993. Multilayer feedforward networks with a nonpolynomial activation function can approximate any function. Neural Networks 6(6). 861–867.
 * Luhn, Hans Peter. 1958. The automatic creation of literature abstracts. IBM Journal of Research and Development 2(2). 159–165.
+* Minsky, Marvin & Seymour Papert. 1969. Perceptrons: An introduction to computational geometry. Cambridge, MA: MIT Press.
 * Schütze, Hinrich. 1992. Dimensions of meaning. In _Proceedings of Supercomputing '92_.
 * Spärck Jones, Karen. 1972. A statistical interpretation of term specificity and its application in retrieval. Journal of Documentation 28(1). 11–21.
 * Zipf, George Kingsley. 1935. The psycho-biology of language. Boston: Houghton Mifflin.
